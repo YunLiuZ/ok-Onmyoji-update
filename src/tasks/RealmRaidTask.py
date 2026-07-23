@@ -4,7 +4,7 @@ from src.tasks.BaseBattleTask import BaseBattleTask
 class RealmRaidTask(BaseBattleTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = "个人突破"
+        self.name = "日常-战斗-个人突破"
         self.trigger_count = 1
         self.count = 1
         self.tickets = 0
@@ -19,42 +19,53 @@ class RealmRaidTask(BaseBattleTask):
     def run(self):
         self.in_home_and_back()
         if self.config["Preset Enable"]:
-            self.SwitchSoul_by_num(int(self.config["Preset Group"]),int(self.config["Preset Team"]))
-        if self.RealmRaid_page():
-            self.Battle()
-            self.sleep(1)     
-            self.Back_Home() 
-        else:
+            group, team = self._parse_preset()
+            self.SwitchSoul_by_num(group, team)
+        if not self.RealmRaid_page():
             self.log_warning("找不到结界页面")
-            self.sleep(1)     
-            self.Back_Home()
+            return False
+        if not self.Battle():
+            return False
+        self.sleep(1)
+        self.Back_Home()
+        return True
 
         
     def RealmRaid_page(self):
         if not self.wait_click_feature('Home_Explore', threshold=0.7,
                                         box=self.B('Home_Explore'),
-                                        raise_if_not_found=False, time_out=3, after_sleep=1):
+                                        raise_if_not_found=False, time_out=6, after_sleep=1):
             self.log_warning("找不到探索 Home_Sign")
         self.info_set("步骤", "进入探索页面")
-        if text:=self.ocr_and_click(['结界','突破'],sleep=2,box=self.box_of_screen(0.18, 0.86, 0.26, 0.99)):
-            print(text)
-            if text := self.wait_ocr(threshold=0.8,box=self.box_of_screen(0.89,0.02,0.95,0.1),time_out=2):
-                import re
-                nums = re.findall(r'\d+', text[0].name)
-                self.tickets = int(nums[0]) if nums else 0
-                print(f"票数: {self.tickets}")
-                self.log_info("{self.tickets}")
-                if self.tickets > self.config["Tickets"]:
-                    self.log_info("1123")
-                    return True
-                else: 
-                    
-                    return False
-                    
+
+        if self.open_buff(self.config.get("加成选择", [])):
+            self.log_info("open buff")
         else:
-            print("2")
+            self.log_info("not open buff")
+
+        if self.wait_click_feature('Exploration_RealmRaid', threshold=0.7,
+                                        box=self.B('bottom'),
+                                        raise_if_not_found=False, time_out=6, after_sleep=1):
+            self.log_info("探索 RealmRaid")
+            self.info_set("步骤", "进入RealmRaid")
+        elif text:=self.ocr_and_click(['结界','突破'],1,box=self.box_of_screen(0.18, 0.86, 0.26, 0.99)):
+            print(text)
+        else:
+            self.log_info('找不到突破')
             return False
-    
+        
+        if text := self.wait_ocr(threshold=0.8,box=self.box_of_screen(0.89,0.02,0.95,0.1),
+                                 time_out=6):
+            import re
+            nums = re.findall(r'\d+', text[0].name)
+            self.tickets = int(nums[0]) if nums else 0
+            self.log_info(f"{self.tickets}")
+            if self.tickets > self.config["Tickets"]:
+                self.log_info("1123")
+                return True
+            else: 
+                return False
+
         
     def Battle(self):
         self.log_info("进入battle")
@@ -89,11 +100,13 @@ class RealmRaidTask(BaseBattleTask):
         res = self.find_feature("Real_Raid_Finish",box=self.box_of_screen(0.11,0.20,0.88,0.73),threshold=0.7)
         lens = len(res)
         print(lens)
+        
 
         # 判断方向：lens=0 默认正着；
         if lens > 0:
             ys = [b.y for b in res]
-            self.forward = sum(ys) / len(ys) < self.frame.shape[0] * 0.5  # 偏上=正着，偏下=倒着
+            print(ys)
+            self.forward = sum(ys) / len(ys) < self.frame.shape[0] * 0.43  # 偏上=正着，偏下=倒着
         else:
             self.forward = True
 
@@ -105,34 +118,30 @@ class RealmRaidTask(BaseBattleTask):
         
         self.log_info(f"方向={'正' if self.forward else '倒'} lens={lens} tickets={self.tickets} 本轮打{attack_num}次")
         self.count = (lens + 1)
-        if lock_res := self.Lock_team((0.50,0.70,0.70,0.90),"RealmRaid_Lock","RealmRaid_Not_Lock"):
+        if lock_res := self.Lock_team((0.50,0.70,0.70,0.90)):
                 self.log_info("锁上了")
         else:
             self.log_info("没锁")
 
         while(attack_num):
-            
             target = self.count if self.forward else (10 - self.count)
             x, y = group_rows[target]
-            
-            
+
             #退四
             if(self.forward and self.count == 9):
                 for i in range(4):
-                    if self.ocr_and_click(["结界","突破"]):
+                    if self.ocr_and_click(["结界","突破"],box=self.box_of_screen(0.45, 0.09, 0.55, 0.18)):
                         self.click_relative(x, y, after_sleep=1)
                         self.ocr_and_click("进攻",box=self.box_of_screen(*group_rows_2[8]))
 
                     if  self.wait_click_feature('Battle_Back', threshold=0.7,
-                                    box=self.box_of_screen(0,0,0.2,0.2),
+                                    box=self.box_of_screen(0,0,0.1,0.1),
                                     raise_if_not_found=False, time_out=5, after_sleep=0.5):
-                        if texts := self.wait_ocr(match='确认',box=self.box_of_screen(0.54,0.55,0.62,0.59),threshold=0.8,time_out=1):
-                            self.click_box(texts[0], after_sleep=1)
+                        if res := self.ocr_and_click('确认',box=self.box_of_screen(0.54,0.55,0.62,0.70)):
                             self.info_set("步骤", "点击 确认")
-
                             if  self.wait_click_feature('Battle_Failure', threshold=0.7,
                                         box=self.B('Battle_Failure'),
-                                        raise_if_not_found=False, time_out=3, after_sleep=1):
+                                        raise_if_not_found=False, time_out=10, after_sleep=1):
                                 print(i)
                                 self.info_set("步骤", "返回结界突破")
                             else:
@@ -141,29 +150,25 @@ class RealmRaidTask(BaseBattleTask):
                         else:
                             self.info_set("确认弹窗", "无")
                             self.log_warning("找不到Battle_Finish")
-
-            self.click_relative(x, y, after_sleep=0.5)
-            self.log_info("进攻")
+            if self.ocr_and_click(["结界","突破"],box=self.box_of_screen(0.45, 0.09, 0.55, 0.18)):
+                self.sleep(0.5)
+                self.click_relative(x, y, after_sleep=0.5)
+                print(x,y)
+                self.log_info("进攻")
             if self.ocr_and_click("进攻",box=self.box_of_screen(*group_rows_2[target-1])):
                 self.log_info(f"点击第 {target} 个")
+                if self.count == 1:
+                    self.log_info("检测是否为自动")
+                    self.change_auto()
             else:
                 self.log_info("没找到进攻")
+                return False
             
             if not lock_res:
                 pass
 
-            if not self.wait_click_feature('Battle_Success', threshold=0.7,
-                                    box=self.B('Battle_Success'),
-                                    raise_if_not_found=False, time_out=self.config["BattleTime"], after_sleep=1.5):
-                self.log_warning("找不到Battle_Success")
-            if res := self.wait_feature('Battle_Finish', threshold=0.7,
-                                    box=self.B('Battle_Finish'),
-                                    raise_if_not_found=False, time_out=5):
-                    self.sleep(1)
-                    self.click(res,after_sleep=1)
-            else:
-                self.log_warning("找不到Battle_Finish 222")
-            if ( self.forward == True and self.count % 3 == 0 ) or (self.forward == False and (self.count+2) % 3 ==0):
+            self.Find_finish(self.config["BattleTime"])
+            if ( self.forward == True and self.count % 3 == 0 ) or (self.forward == False and (self.count) % 3 ==0):
                 self.log_info(f"方向={'正' if self.forward else '倒'},第 {self.count} 个挑战 ,出现了勾玉结算)")
                 if res := self.wait_feature('Battle_Finish', threshold=0.7,
                                     box=self.box_of_screen(0.39,0.57,0.62,0.88),
@@ -180,4 +185,5 @@ class RealmRaidTask(BaseBattleTask):
             self.count = self.count%9 + 1
             self.trigger_count+=1
             attack_num -= 1
+        return True
                     

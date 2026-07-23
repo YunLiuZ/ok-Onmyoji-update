@@ -1,10 +1,24 @@
 import os
+import sys
 
 import numpy as np
 from ok import ConfigOption
 
-version = "v0.1.6"
+version = "v0.2.1"
 #不需要修改version, Github Action打包会自动修改
+
+
+def _get_instance_id():
+    """从命令行 --instance N 或环境变量 OK_INSTANCE 获取实例编号，默认1。"""
+    for i, arg in enumerate(sys.argv):
+        if arg == '--instance' and i + 1 < len(sys.argv):
+            return int(sys.argv[i + 1])
+    env = os.environ.get("OK_INSTANCE", "")
+    return int(env) if env.isdigit() else 1
+
+
+_instance_id = _get_instance_id()
+_instance_suffix = f"/instance_{_instance_id}" if _instance_id > 1 else ""
 
 key_config_option = ConfigOption('Game Hotkey Config', { #全局配置示例
     'Echo Key': 'q',
@@ -12,6 +26,10 @@ key_config_option = ConfigOption('Game Hotkey Config', { #全局配置示例
     'Resonance Key': 'e',
     'Tool Key': 't',
 }, description='In Game Hotkey for Skills')
+
+character_config = ConfigOption('角色信息', {
+    '角色': '',
+}, description='当前控制哪个角色，所有任务共用。设置一次即可。')
 
 
 def make_bottom_right_black(frame): #可选. 某些游戏截图时遮挡UID使用
@@ -52,8 +70,8 @@ config = {
     'custom_tasks':True, # enable creating and editing custom tasks
     'debug': False,  # Optional, default: False
     'use_gui': True, # 目前只支持True
-    'config_folder': 'configs', #最好不要修改
-    'global_configs': [key_config_option],
+    'config_folder': f'configs{_instance_suffix}',  # 多开时自动使用子目录（如 configs/instance_2）
+    'global_configs': [key_config_option, character_config],
     'screenshot_processor': make_bottom_right_black, # 在截图的时候对frame进行修改, 可选
     'gui_icon': 'icons/icon.png', #窗口图标, 最好不需要修改文件名
     'wait_until_before_delay': 0,
@@ -103,7 +121,8 @@ config = {
             }
         },
     'screenshots_folder': "screenshots", #截图存放目录, 每次重新启动会清空目录
-    'gui_title': 'ok-py',  #窗口名
+    'custom_tabs': [['src.ui.MyTab', 'MyTab'], ['src.ui.ScheduleTab', 'ScheduleTab'], ['src.ui.MultiTaskTab', 'MultiTaskTab']],  # 自定义Tab
+    'gui_title': f'ok-Onmyoji #{_instance_id}',  #窗口名
     'template_matching': { # 可选, 如使用OpenCV的模板匹配
         'coco_feature_json': os.path.join('assets', 'coco_annotations.json'), #coco格式标记, 需要png图片, 在debug模式运行后, 会对进行切图仅保留被标记部分以减少图片大小
         'default_horizontal_variance': 0.002, #默认x偏移, 查找不传box的时候, 会根据coco坐标, match偏移box内的
@@ -113,14 +132,30 @@ config = {
     'version': version, #版本
     'my_app': ['src.globals', 'Globals'], #可选. 全局单例对象, 可以存放加载的模型, 使用og.my_app调用
     'onetime_tasks': [  # 用户点击触发的任务
+        # ── 日常 ──
         ["src.tasks.DailyTask", "DailyTask"],
-        ["src.tasks.ExplorationTask", "ExplorationTask"],
         ["src.tasks.DelegationTask", "DelegationTask"],
-        ["src.tasks.SoulZonesTask", "SoulZonesTask"],
+        ["src.tasks.UtilizeTask", "UtilizeTask"],
+        ["src.tasks.OrchidsTask", "OrchidsTask"],
+        ["src.tasks.TaskScheduler", "TaskScheduler"],
+
+        # ── 日常-战斗 ──
         ["src.tasks.AreaBossTask", "AreaBossTask"],
         ["src.tasks.RealmRaidTask", "RealmRaidTask"],
+
+        # ── 战斗 ──
+        ["src.tasks.SoulZonesTask", "SoulZonesTask"],
+        ["src.tasks.ExplorationTask", "ExplorationTask"],
         ["src.tasks.GameEventsBattleTask", "GameEventsBattleTask"],
-        ["src.tasks.TaskScheduler", "TaskScheduler"],
+
+        # ── 其他 ──
+        ["src.tasks.RestartGameTask", "RestartGameTask"],
         ["ok", "DiagnosisTask"],
+    ],
+    'trigger_tasks': [  # 后台自动运行的调度任务
+        ["src.tasks.AutoScheduleRunner", "ScheduleRunner"],
+        ["src.tasks.AutoRecover", "AutoRecover"],
+        ["src.tasks.AutoLoginTask", "AutoLoginTask"],
+
     ],
 }
