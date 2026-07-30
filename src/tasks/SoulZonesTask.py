@@ -1,29 +1,28 @@
-from src.tasks.BaseBattleTask import BaseBattleTask
+import re
+
+from src.tasks.BuffBattleTask import BuffBattleTask
 
 
-class SoulZonesTask(BaseBattleTask):
+
+class SoulZonesTask(BuffBattleTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = "战斗-魂土"
-        self.trigger_count = 1
-        self.count = 1
-
         self.default_config.update({
             "UserStatus": "队长",
             "Friend 1": "",
             "Friend 2": "",
             "Soul Zones": "悲鸣",
-            "魂十一": "",
-            "魂十二": "",
-            "魂十三": "",
-
+            "OrochiMoans": "",
+            "OrochiJudgement": "",
+            "OrochiNothingness": "",
         })
         self.config_description.update({
             "UserStatus": "队伍角色：队长创建的队伍，队员加入队伍，单人独自挑战。",
             "Friend 1": "邀请几位就填几位，不邀请请不要填写",
-            "魂十一": "预设队伍编号，格式：组,队  例如 1,5 表示第1组第5个队伍（对应悲鸣）",
-            "魂十二": "预设队伍编号，格式：组,队  例如 2,3 表示第2组第3个队伍（对应神罚）",
-            "魂十三": "预设队伍编号，格式：组,队  例如 3,1 表示第3组第1个队伍（对应虚无）",
+            "OrochiMoans": "预设队伍编号，格式：组,队（对应悲鸣）请务必填写，不填写会全部用默认队伍，十层使用默认队伍（真的会有大佬打第十层吗）",
+            "OrochiJudgement": "预设队伍编号，格式：组,队（对应神罚）请务必填写，不填写会全部用默认队伍",
+            "OrochiNothingness": "预设队伍编号，格式：组,队（对应虚无）请务必填写，不填写会全部用默认队伍",
         })
         self.config_type.update({
             "UserStatus": {
@@ -38,9 +37,9 @@ class SoulZonesTask(BaseBattleTask):
 
     def run(self):
         self.in_home_and_back()
-
+        self.group, self.team = self._switch_preset_by_soul_zone()
         if self.config["Preset Enable"]:
-            self._switch_preset_by_soul_zone()
+            self.SwitchSoul_by_num(self.group, self.team)
 
         if self.config["UserStatus"] == "队长":
             if not self.SoulZones_page():
@@ -90,9 +89,9 @@ class SoulZonesTask(BaseBattleTask):
     def _switch_preset_by_soul_zone(self):
         """根据 Soul Zones 选择，从对应的魂XX配置中解析 组,队 并切换预设。"""
         zone_map = {
-            "悲鸣": "魂十一",
-            "神罚": "魂十二",
-            "虚无": "魂十三",
+            "悲鸣": "OrochiMoans",
+            "神罚": "OrochiJudgement",
+            "虚无": "OrochiNothingness",
         }
         key = zone_map.get(self.config["Soul Zones"])
         if key and self.config.get(key):
@@ -103,12 +102,11 @@ class SoulZonesTask(BaseBattleTask):
                     group = int(parts[0].strip())
                     team = int(parts[1].strip())
                     self.log_info(f"({self.config['Soul Zones']}) → {key}: 组{group} 队{team}")
-                    self.SwitchSoul_by_num(group, team)
-                    return
+                    return group, team
         # 兜底：使用默认的 Preset Team
         self.log_info("使用默认预设队伍")
-        group, team = self._parse_preset()
-        self.SwitchSoul_by_num(group, team)
+        group, team = self._parse_preset(self.config["Preset Team"])
+        return group, team
 
     def SoulZones_page(self):   
 
@@ -134,7 +132,7 @@ class SoulZonesTask(BaseBattleTask):
             self.log_info('找不到Soul')
             return False
 
-        if text:=self.wait_ocr(['御魂','御','魂'],box=self.box_of_screen(0.11,0,0.17,0.1)):
+        if text:=self.wait_ocr(match=re.compile("御魂"),box=self.box_of_screen(0.11,0,0.17,0.1)):
 
             self.click_relative(0.2,0.5,after_sleep=1)
             self.log_info('点击八岐大蛇')
@@ -165,7 +163,7 @@ class SoulZonesTask(BaseBattleTask):
             return None
         result = self.wait_until(
                 lambda: check_battle_end(),
-                time_out=self.config["BattleTime"] + 15,
+                time_out=self.BattleTime + 15,
                 raise_if_not_found=False,
             )
         return result
@@ -189,6 +187,9 @@ class SoulZonesTask(BaseBattleTask):
     def _invite_one(self, f: str, invite_xy: tuple, confirm_box: tuple) -> bool:
         """邀请单个好友：invite_xy=(x,y) 邀请按钮位置，confirm_box 确认区域。"""
         self.click_relative(*invite_xy, after_sleep=1)
+        a = self._invite_tabs()
+        print("11111111111111111111111111111111111111")
+        print(a)
         for tab in self._invite_tabs():
             if self.ocr_and_click(tab,time_out=3,box=self.B("Friend_Index")):
                 if self.ocr_and_click(f,time_out=3, box=self.B("Friend")):
@@ -200,7 +201,7 @@ class SoulZonesTask(BaseBattleTask):
         return False
 
     def Invitation(self):
-        if text := self.wait_ocr(['协战', '队伍'],
+        if text := self.wait_ocr(match = re.compile("协战|队伍"),
                                   box=self.box_of_screen(0, 0, 0.17, 0.1), time_out=6):
             print(text)
 
@@ -223,14 +224,17 @@ class SoulZonesTask(BaseBattleTask):
         targets = [self.config["Friend 1"]]
         if self.config["Friend 2"]:
             targets.append(self.config["Friend 2"])
-        if lock_res:=self.Lock_team((0.07,0.87,0.12,0.97)):
-            self.log_info("锁")
+        if self.config["Lock Team Enable"]:
+            # 解锁状态 准备换队伍
+            self.Lock_team((0.07,0.87,0.12,0.97), lock=False)
         else:
-            self.log_info("没锁")
+            # 不换
+            self.Lock_team((0.07,0.87,0.12,0.97), lock=True)
+
     
         self.count = 1
 
-        while(self.count <= self.config["AttackNumber"]):
+        while(self.count <= self.AttackNumber):
              for i, f in enumerate(targets):
                 if i == 0:
                     ok = self.ocr_and_click(f, time_out=30,box=self.box_of_screen (0.43, 0.15, 0.53, 0.19))
@@ -239,17 +243,31 @@ class SoulZonesTask(BaseBattleTask):
                 if ok:
                     self.click_relative(0.95,0.90,after_sleep=0.5)
                     self.log_info("进入battle")
-                    
-                    if self.count == 1: 
-                        if not lock_res:
-                            if not self.config["Preset Enable"]: #只是忘记锁了
-                                self.ocr_and_click("准备",box=self.box_of_screen(0.87, 0.77, 0.96, 0.85))
-                                self.log_warning("请锁定阵容")
-                            else:
-                                self.Change_team()
+
+                    if self.count == 1:
+                        self.log_info("进入检测1")
+                        if self.config["Lock Team Enable"]:
+                            self.Change_team(self.group, self.team)
+
                         self.log_info("检测是否为自动")
                         self.change_auto()
-                    self.Find_finish(self.config["BattleTime"])
+                    if self.GreenNum != 0:
+                        if self.wait_ocr(
+                                match=re.compile('自动'),
+                                box=self.box_of_screen(0.02, 0.88, 0.08, 0.96),
+                                time_out=8
+                        ):
+                            self.sleep(0.1)
+                            x, y = self.green[self.GreenNum]
+                            self.click_relative(x, y, after_sleep=1)
+
+                    res = self.Find_finish(self.BattleTime)
+                    if res == 2:
+                        self.log_warning("战斗失败！！")
+                        return False
+                    elif res == 3:
+                        self.log_warning("战斗超时！！")
+                        return False
 
                     if self.count == 1:      
                         if self.wait_ocr("发现宝藏",time_out=1,box=self.box_of_screen(0.36,0.18,0.65,0.33)):
@@ -262,7 +280,7 @@ class SoulZonesTask(BaseBattleTask):
                         else:
                             self.log_warning("找不到Leader_Invitation")
 
-                    self.log_info(f"第 {self.count} 次战斗结束 总共{self.config["AttackNumber"]} 第 {self.trigger_count} 次战斗")
+                    self.log_info(f"第 {self.count} 次战斗结束 总共{self.AttackNumber} 第 {self.trigger_count} 次战斗")
                     self.count+=1
                     self.trigger_count+=1
                 else:
@@ -285,7 +303,7 @@ class SoulZonesTask(BaseBattleTask):
 
     def Alone_battle(self):
         self.count = 1
-        while(self.count <= self.config["AttackNumber"]):
+        while(self.count <= self.AttackNumber):
             if self.ocr_and_click(['挑战'],box=self.box_of_screen(0.87,0.79,0.98,0.90)):
                 self.log_info('点击挑战')   
             if self.count == 1:
@@ -312,7 +330,7 @@ class SoulZonesTask(BaseBattleTask):
                     self.click(res,after_sleep=1)
             else:
                 self.log_warning("找不到Battle_Finish 222")
-            self.log_info(f"第 {self.count} 次战斗结束 总共{self.config["AttackNumber"]} 第 {self.trigger_count} 次战斗")
+            self.log_info(f"第 {self.count} 次战斗结束 总共{self.AttackNumber} 第 {self.trigger_count} 次战斗")
             self.count+=1
             self.trigger_count+=1
         self.wait_click_feature("Home_Button",box=self.B("Home_Button"),threshold=0.8,time_out=6,after_sleep=2)
@@ -320,15 +338,31 @@ class SoulZonesTask(BaseBattleTask):
 
     def Member_battle(self):
         self.count = 1
-        if lock_res:=self.Lock_team((0.07,0.87,0.12,0.97)):
-            self.log_info("锁")
+        if self.config["Lock Team Enable"]:
+            # 解锁状态 准备换队伍
+            self.Lock_team((0.07, 0.87, 0.12, 0.97), lock=False)
         else:
-            self.log_info("没锁")
-        while self.count <= self.config["AttackNumber"] :
+            # 不换
+            self.Lock_team((0.07, 0.87, 0.12, 0.97), lock=True)
+        while self.count <= self.AttackNumber :
             if self.count == 1:
+                self.log_info("进入检测1")
+                if self.config["Lock Team Enable"]:
+                    self.Change_team(self.group, self.team)
+
                 self.log_info("检测是否为自动")
                 self.change_auto()
-            if not self.Find_finish(self.config["BattleTime"]):
+            if self.GreenNum != 0:
+                if self.wait_ocr(
+                        match=re.compile('自动'),
+                        box=self.box_of_screen(0.02, 0.88, 0.08, 0.96),
+                        time_out=8
+                ):
+                    self.sleep(0.1)
+                    x, y = self.green[self.GreenNum]
+                    self.click_relative(x, y, after_sleep=1)
+
+            if self.Find_finish(self.BattleTime) != 1:
                 self.Back_Home()
                 return False
             if self.count == 1:      
@@ -343,7 +377,7 @@ class SoulZonesTask(BaseBattleTask):
                                         raise_if_not_found=False, time_out=6, after_sleep=1):
                         if not (self.ocr_and_click('确定',time_out=6,box=self.box_of_screen(0.45,0.45,0.70,0.70))):
                             self.log_warning("找不到确认")       
-            self.log_info(f"第 {self.count} 次战斗结束 总共{self.config["AttackNumber"]} 第 {self.trigger_count} 次战斗")
+            self.log_info(f"第 {self.count} 次战斗结束 总共{self.AttackNumber} 第 {self.trigger_count} 次战斗")
             self.count += 1
             self.trigger_count+=1
         if self.Back_Home():

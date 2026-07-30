@@ -457,6 +457,10 @@
             <source>Click an option to add it.</source>
             <translation>点击选项以添加。</translation>
         </message>
+        <message>
+            <source>Search options...</source>
+            <translation>搜索选项...</translation>
+        </message>
     </context>
     <context>
         <name>ModifyListItem</name>
@@ -1363,7 +1367,7 @@
             <translation>测试版</translation>
         </message>
         <message>
-            <source>Kill Launcher after Start</source>
+            <source>Kill Launcher After Start</source>
             <translation>启动后关闭启动器</translation>
         </message>
         <message>

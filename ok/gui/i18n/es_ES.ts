@@ -467,6 +467,10 @@
             <source>Click an option to add it.</source>
             <translation>Haz clic en una opción para añadirla.</translation>
         </message>
+        <message>
+            <source>Search options...</source>
+            <translation>Buscar opciones...</translation>
+        </message>
     </context>
     <context>
         <name>ModifyListItem</name>
@@ -1353,7 +1357,7 @@
             <translation>Versión Beta</translation>
         </message>
         <message>
-            <source>Kill Launcher after Start</source>
+            <source>Kill Launcher After Start</source>
             <translation>Cerrar el lanzador después de iniciar</translation>
         </message>
         <message>

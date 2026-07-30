@@ -467,6 +467,10 @@
             <source>Click an option to add it.</source>
             <translation>點擊選項以新增。</translation>
         </message>
+        <message>
+            <source>Search options...</source>
+            <translation>搜尋選項...</translation>
+        </message>
     </context>
     <context>
         <name>ModifyListItem</name>
@@ -1357,7 +1361,7 @@
             <translation>快捷鍵</translation>
         </message>
         <message>
-            <source>Kill Launcher after Start</source>
+            <source>Kill Launcher After Start</source>
             <translation>啟動後關閉啟動器</translation>
         </message>
         <message>

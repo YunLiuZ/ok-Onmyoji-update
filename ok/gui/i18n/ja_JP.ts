@@ -467,6 +467,10 @@
             <source>Click an option to add it.</source>
             <translation>オプションをクリックして追加します。</translation>
         </message>
+        <message>
+            <source>Search options...</source>
+            <translation>オプションを検索...</translation>
+        </message>
     </context>
     <context>
         <name>ModifyListItem</name>
@@ -1345,7 +1349,7 @@
             <translation>ベータ版</translation>
         </message>
         <message>
-            <source>Kill Launcher after Start</source>
+            <source>Kill Launcher After Start</source>
             <translation>起動後にランチャーを終了する</translation>
         </message>
         <message>

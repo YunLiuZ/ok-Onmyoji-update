@@ -15,7 +15,8 @@ class OrchidsTask(BaseOmjTask):
             "Friend 1": "",
         })
         self.config_description.update({
-            "Friend 1": "在使用之前，请给好友发个消息，保证好友在最近列表，同心之兰队友",
+            "First": "谁先邀请，一个启用另一个不启用，强烈建议让没有什么好友的小号优先邀请，大号添加好友可能会导致小号在最近消失",
+            "Friend 1": "在使用之前请给好友发个消息，保证好友在最近列表，",
         })
 
     def run(self):
@@ -46,7 +47,7 @@ class OrchidsTask(BaseOmjTask):
             self.log_warning("找不到探索 Home_Friend")
         if self.wait_ocr(match=re.compile('提升|羁绊提'),
                          box=self.box_of_screen(0.34, 0.09, 0.64, 0.25),
-                         time_out=6):
+                         time_out=3):
             self.wait_click_feature('Daily_New_Cancel', threshold=0.7,
                                        box=self.box_of_screen(0.86, 0.07, 0.94, 0.2),
                                        raise_if_not_found=False, time_out=6, after_sleep=1)

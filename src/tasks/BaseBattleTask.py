@@ -5,50 +5,58 @@ from src.tasks.BaseOmjTask import BaseOmjTask
 
 class BaseBattleTask(BaseOmjTask):
     """战斗任务基类：统一管理阵容锁定、预设队伍切换等战斗配置。"""
-
-    BUFF_NAMES = ["觉醒", "御魂", "金币增加100", "经验增加100", "经验增加50"]
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.green = {
+            1: (0.17, 0.65),
+            2: (0.35, 0.6),
+            3: (0.49, 0.55),
+            4: (0.64, 0.56),
+            5: (0.78, 0.76),
+            6: (0.48, 0.82),
+        }
+        self.group = 0
+        self.team = 0
+
+        self.trigger_count = 1 #想法是 多次启动多次记录
+        self.count = 1 #每次启动战斗的次数 每次启动刷新的
 
         self.default_config.update({
             "Lock Team Enable": True,
             "Preset Enable": False,
             "Preset Team": "1,1",
             "Team Name":"",
-            "AttackNumber":10,
-            "BattleTime": 300,
-            "加成选择": [],
-            "优先搜索": "最近",
+            "AttackNumber":"1",
+            "BattleTime": "180",
+            "Green Enable": "0",
         })
 
         self.config_description.update({
-            "Lock Team Enable": "开启后每次战斗前锁定当前阵容，防止误操作切换队伍。",
+            "Lock Team Enable": "不开启时默认锁定阵容，开启后第一次将切换阵容第二次锁定，建议第一次手动调整以后锁定即可，使用此功能时队伍预设请使用Preset Team",
             "Preset Enable": "开启后战斗前自动切换到指定的预设队伍。",
-            "Preset Team": "预设队伍编号，格式：组,队  例如 1,5 表示第1组第4个队伍，最大支持7和4。",
-            "Team Team": "预设组，队伍名，理论上可以让队伍选择更多，但是推荐尽量用上面那个，因为更稳定",
+            "Preset Team": "预设队伍编号，格式：组,队  例如 1,5 表示第1组第4个队伍，最大支持7和4。和Team Name二选一填写",
+            "Team Name": "此功能暂时没设置好不要使用，预设组，队伍名，理论上可以让队伍选择更多，但是推荐尽量用上面那个，因为更稳定",
             "BattleTime": "通过时间 一般情况下不用修改",
-            "加成选择": "选择需要打开的加成，不选则不开任何加成。",
-            "优先搜索": "邀请好友时优先查看哪个标签页（最近/好友/跨区/寮友）。",
+            "Green Enable": "是否绿标，从左到右填写1-6，6为阴阳师，0为不绿标"
         })
-
         self.config_type.update({
-            "加成选择": {
-                "type": "multi_selection",
-                "options": self.BUFF_NAMES.copy(),
-            },
-            "优先搜索": {
-                "type": "drop_down",
-                "options": ["最近", "好友", "跨区", "寮友"],
-            },
         })
 
-    # ---------- 预设队伍解析 ----------
+    @property
+    def AttackNumber(self):
+        return int(self.config["AttackNumber"])
 
-    def _parse_preset(self):
-        """解析 Preset Team 配置（格式 "组,队" 如 "1,5"），返回 (group, team)。"""
-        val = self.config.get("Preset Team", "1,1")
-        parts = val.split(",")
+    @property
+    def BattleTime(self):
+        return int(self.config["BattleTime"])
+
+    @property
+    def GreenNum(self):
+        return int(self.config["Green Enable"])
+
+    def _parse_preset(self, preset="1,1"):
+        """解析 组,队 字符串（如 "1,5"），返回 (group, team)。"""
+        parts = preset.split(",")
         if len(parts) == 2:
             return int(parts[0].strip()), int(parts[1].strip())
         return 1, 1
@@ -133,7 +141,7 @@ class BaseBattleTask(BaseOmjTask):
                 self.click(text[0],after_sleep=0.5)
             if text := self.ocr('确认',box=self.box_of_screen(0.50,0.53,0.66,0.63)):
                 self.click(text[0],after_sleep=0.5)
-            if not self.wait_click_feature('Back', threshold=0.7,
+            if self.wait_click_feature('Back', threshold=0.7,
                                             box=self.B('Back'),
                                             raise_if_not_found=False, time_out=6, after_sleep=1):
             
@@ -144,12 +152,23 @@ class BaseBattleTask(BaseOmjTask):
 
 
 
-    def Lock_team(self, confirm_box: tuple):
+    def _invite_tabs(self, base_tabs=None):
+        """返回按优先搜索重排后的标签页列表。"""
+        if base_tabs is None:
+            base_tabs = ["最近", "好友", "跨区", "寮友"]
+        tabs = list(base_tabs)
+        first = self.config.get("FindMode", tabs[0])
+        if first in tabs:
+            tabs.remove(first)
+            tabs.insert(0, first)
+        return tabs
+# region 预设
+    def Lock_team(self, confirm_box: tuple,lock = True):
         LOCK_NAMES = ["Soul_Lock", "Lock", "Areaboss_Lock", "RealmRaid_Lock"]
         NOT_LOCK_NAMES = ["Soul_Not_Lock", "Not_Lock", "Areaboss_Not_Lock", "RealmRaid_Not_Lock"]
         if res := self.find_one(LOCK_NAMES, threshold=0.85, box=self.box_of_screen(*confirm_box)):
             self.log_info("检查到上锁")
-            if self.config["Lock Team Enable"]:
+            if lock:
                 self.log_info("上锁")
                 return True
             else:
@@ -157,55 +176,55 @@ class BaseBattleTask(BaseOmjTask):
                 self.log_info("解锁")
                 return False
         elif res := self.find_one(NOT_LOCK_NAMES, threshold=0.85, box=self.box_of_screen(*confirm_box)):
-            if self.config["Lock Team Enable"]:
+            if lock:
                 self.click(res)
                 self.log_info("上锁")
                 return True
             else:
                 self.log_info("解锁")
                 return False
+    def Change_team(self,group:int,team:int):
+        self.log_info("进入检测2")
+        if self.wait_click_ocr(match=re.compile("预设"),
+                            box=self.box_of_screen(0.02, 0.87, 0.14, 1.0),
+                            raise_if_not_found=False, time_out=120):
+            self.sleep(2)
+            group_rows = {1: 0.36, 2: 0.45, 3: 0.54, 4: 0.63, 5: 0.72, 6: 0.81, 7: 0.90}
+            self.click_nth('x', 0.08, group_rows, group, "预设组")
+            self.sleep(0.5)
 
-    def _invite_tabs(self, base_tabs=None):
-        """返回按优先搜索重排后的标签页列表。"""
-        if base_tabs is None:
-            base_tabs = ["最近", "好友", "跨区", "寮友"]
-        tabs = list(base_tabs)
-        first = self.config.get("优先搜索", tabs[0])
-        if first in tabs:
-            tabs.remove(first)
-            tabs.insert(0, first)
-        return tabs
-
-    def Change_team(self):
-        self.ocr_and_click(["预","设"],box=self.box_of_screen(0,0.87,0.15,1))# (0.8781, 0.7701, 0.9625, 0.8535)
-        group, team = self._parse_preset()
-        group_rows = {1: 0.36, 2: 0.45, 3: 0.54, 4: 0.63, 5: 0.72, 6: 0.81, 7: 0.90}
-        self.click_nth('x', 0.76, group_rows, group, "预设组")
-
-        team_rows = {1: 0.22, 2: 0.44, 3: 0.64, 4: 0.85}
-        self.click_nth('x', 0.77, team_rows, team, "预设队伍")
-
-        self.ocr_and_click("出战",1,box=self.box_of_screen(0.26, 0.88, 0.40, 0.96))
-        if not self.ocr_and_click("确定",time_out=6,box=self.box_of_screen(0.45, 0.57, 0.54, 0.62)):
-            if self.ocr_and_click("准备",box=self.box_of_screen(0.87, 0.77, 0.96, 0.85)):
-                True
-            else:
-                False
-        else:
-            if self.ocr_and_click("准备",box=self.box_of_screen(0.87, 0.77, 0.96, 0.85)):
+            team_rows = {1: 0.36, 2: 0.53, 3: 0.69, 4: 0.85}
+            self.click_nth('x', 0.35, team_rows, team, "预设队伍")
+            self.sleep(0.5)
+            if self.wait_click_ocr(match=re.compile("确定"),
+                                   box=self.box_of_screen(0.26, 0.88, 0.40, 0.96),
+                                   raise_if_not_found=False, time_out=2):
+                self.click_relative(0.33, 0.93, after_sleep=0.5)
+                self.log_warning("御魂不一致！！")
+                #开战
+                self.click_relative(0.91, 0.79)
                 return True
-            else: return False
+            else:
+                # 开战
+                self.click_relative(0.33,0.93,after_sleep=0.5)
+                self.click_relative(0.91, 0.79)
+                return True
+        else:
+            self.click_relative(0.91, 0.79)
+            self.log_warning("没有识别到预设")
+            return False
+# endregion
     def Find_finish(self, battle_time, success_box='Battle_Success'):
         """
         等待战斗结束并处理结算画面。
-        同时检测 Battle_Success 和 Battle_Finish，用各自的 box。
-        保留原嵌套重试逻辑：点一次 → sleep → 确认 → 没点上再补刀。
 
         Returns:
-            True  战斗正常结束
-            False 超时
+            1  战斗成功
+            2  战斗失败
+            3  超时
         """
-        success_clicked = False
+        result = 1
+
         def finish():
             if self.wait_click_feature('Battle_Finish', threshold=0.7,
                                         box=self.B('Battle_Finish'),
@@ -213,8 +232,8 @@ class BaseBattleTask(BaseOmjTask):
                 self.sleep(0.5)
                 if res1 := self.find_one('Battle_Finish', threshold=0.7,
                                           box=self.B('Battle_Finish')):
-                    self.click(res1,after_sleep=0.1)
-                    self.click(res1,after_sleep=0.1)
+                    self.click(res1, after_sleep=0.1)
+                    self.click(res1, after_sleep=0.1)
                     self.click(res1, after_sleep=0.1)
                     self.log_info("第一次没点到")
                     return True
@@ -238,12 +257,13 @@ class BaseBattleTask(BaseOmjTask):
             return False
 
         def check():
-            if res := self.find_one('Battle_Success', threshold=0.7,
-                                        box=self.B('success_box')):
-                self.click(res)
-                self.sleep(2)
+            nonlocal result
+            if self.wait_click_feature('Battle_Success', threshold=0.7,
+                                               box=self.B('success_box'),
+                                                raise_if_not_found=False, time_out=1,
+                                                  after_sleep=0.5):
                 if res1 := self.find_one('Battle_Success', threshold=0.7,
-                                          box=self.B('success_box')):
+                                                          box=self.B('success_box')):
                     self.click(res1)
                     self.sleep(0.5)
                     self.log_info("第一次没点到")
@@ -253,10 +273,23 @@ class BaseBattleTask(BaseOmjTask):
                     return True
                 else:
                     return False
-            # 检测 Battle_Finish（原嵌套重试逻辑）
+            # if res := self.find_one('Battle_Success', threshold=0.7,
+            #                             box=self.B('success_box')):
+            #     self.click(res)
+            #     self.sleep(2)
+            #     if res1 := self.find_one('Battle_Success', threshold=0.7,
+            #                               box=self.B('success_box')):
+            #         self.click(res1)
+            #         self.sleep(0.5)
+            #         self.log_info("第一次没点到")
+            #     else:
+            #         self.log_info("第一次点到")
+            #     if finish():
+            #         return True
+            #     else:
+            #         return False
             if res := self.find_one('Battle_Finish', threshold=0.7,
-                                        box=self.B('Battle_Finish'),
-                                        ):
+                                        box=self.B('Battle_Finish')):
                 self.click(res)
                 self.sleep(1)
                 if res1 := self.find_one('Battle_Finish', threshold=0.7,
@@ -269,8 +302,7 @@ class BaseBattleTask(BaseOmjTask):
                     self.log_info("第一次点到")
                     return True
             if res := self.find_one('Battle_Finish_Soul', threshold=0.7,
-                                        box=self.B('Battle_Finish_Soul'),
-                                        ):
+                                        box=self.B('Battle_Finish_Soul')):
                 self.click(res)
                 self.sleep(1)
                 if res1 := self.find_one('Battle_Finish_Soul', threshold=0.7,
@@ -282,13 +314,28 @@ class BaseBattleTask(BaseOmjTask):
                 else:
                     self.log_info("第一次点到")
                     return True
+            if res := self.find_one('Battle_Failure', threshold=0.7,
+                                        box=self.B('Battle_Failure')):
+                self.click(res)
+                self.sleep(0.5)
+                if res1 := self.find_one('Battle_Failure', threshold=0.7,
+                                        box=self.B('Battle_Failure')):
+                    self.click(res1)
+                    self.log_info("第一次没点到")
+                    self.sleep(1)
+                    result = 2
+                    return True
+                else:
+                    self.log_info("第一次点到")
+                    result = 2
+                    return True
             return False
 
         if self.wait_until(check, time_out=battle_time, raise_if_not_found=False):
-            return True
+            return result
 
         self.log_warning("战斗结束超时")
-        return False
+        return 3
     def open_buff(self, selected):
         """根据 selected（buff 名列表），先 OCR 定位加成文字位置，再检查/点击对应开关。
         不同用户加成数量不同，OCR 自适应。"""
@@ -337,20 +384,19 @@ class BaseBattleTask(BaseOmjTask):
         return True
 
     def change_auto(self):
-        results = self.wait_ocr(
-            match=re.compile('自动|手动'),
-            box=self.box_of_screen(0.02, 0.88, 0.08, 0.96),
-            time_out = 4
-        )
-        if not results:
-            self.log_info("没检测到自动手动，可能战斗已经结束")
-            return True
-        for r in results:
-            if '手动' in r.name:
-                self.click_box(r)
-                self.log_info("点击 切换自动")
-                return True
-            if '自动' in r.name:
+        def check():
+            if self.wait_ocr(
+                    match=re.compile('自动'),
+                    box=self.box_of_screen(0.02, 0.88, 0.08, 0.96),
+                    time_out=1
+            ):
                 self.log_info("自动")
                 return True
-
+            elif res := self.ocr( match=re.compile('手动'),
+                                  box=self.box_of_screen(0.02, 0.88, 0.08, 0.96)):
+                self.click(res[0])
+                self.log_info("点击 切换自动")
+                return False
+            return False
+        if self.wait_until(check, time_out=5, raise_if_not_found=False):
+            return True

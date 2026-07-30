@@ -457,6 +457,10 @@
             <source>Click an option to add it.</source>
             <translation>Click an option to add it.</translation>
         </message>
+        <message>
+            <source>Search options...</source>
+            <translation>Search options...</translation>
+        </message>
     </context>
     <context>
         <name>ModifyListItem</name>
@@ -1367,8 +1371,8 @@
             <translation>Beta Version</translation>
         </message>
         <message>
-            <source>Kill Launcher after Start</source>
-            <translation>Kill Launcher after Start</translation>
+            <source>Kill Launcher After Start</source>
+            <translation>Kill Launcher After Start</translation>
         </message>
         <message>
             <source>Target window active: Recording resumed</source>

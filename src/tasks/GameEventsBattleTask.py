@@ -7,8 +7,9 @@ from datetime import datetime
 class GameEventsBattleTask(BaseBattleTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = "战斗-活动"
+        self.name = "战斗-活动爬塔"
         self.count = 0
+
 
         self.isap = True
 
@@ -25,9 +26,11 @@ class GameEventsBattleTask(BaseBattleTask):
         })
 
     def run(self):
-        # self.SwitchSoul_by_num(int(self.config["Preset Group"]),int(self.config["Preset Team"]))
-        # self.reset()
         self.in_home_and_back()
+        self.group, self.team = self._parse_preset(self.config["Preset Team"])
+        if self.config["Preset Enable"]:
+            self.SwitchSoul_by_num(self.group, self.team)
+
         self.Battle_page()
         self.Battle()
 
@@ -37,9 +40,7 @@ class GameEventsBattleTask(BaseBattleTask):
                                     box=self.box_of_screen(0.78, 0.17, 0.87, 0.53)):
             print(text)
 
-
     def Battle(self):
-        self.ocr_and_click("式神",box=self.box_of_screen(0.65,0.82,0.84,0.9))
         if self.wait_ocr(match=re.compile("养成|协战|式神"),
                          time_out=3,
                          box=self.box_of_screen(0.65,0.82,0.84,0.9)):
@@ -66,10 +67,13 @@ class GameEventsBattleTask(BaseBattleTask):
             nums = re.findall(r'\d+', text[0].name)
             self.ap_tickets = int(nums[0]) if nums else 0
             self.log_info(f"体力的票数{self.ap_tickets}")
-        if self.Lock_team((0.61, 0.89, 0.66, 0.97)):
-                self.log_info("锁上了")
+        if self.config["Lock Team Enable"]:
+            # 解锁状态 准备换队伍
+            self.Lock_team((0.61, 0.89, 0.66, 0.97), lock=False)
         else:
-            self.log_info("没锁")
+            # 不换
+            self.Lock_team((0.61, 0.89, 0.66, 0.97), lock=True)
+
 
         if self.config["GeneralClimb"]:
             self.count = 1
@@ -94,7 +98,7 @@ class GameEventsBattleTask(BaseBattleTask):
                 self.sleep(0.5)
             else:
                 self.log_info("体力")
-            num = self.config["AttackNumber"] if (self.config["AttackNumber"] < self.ap_tickets) else self.ap_tickets
+            num = self.AttackNumber if (self.AttackNumber < self.ap_tickets) else self.ap_tickets
             while self.count < num:
                 self.Battle_process()
                 self.count += 1
@@ -131,12 +135,30 @@ class GameEventsBattleTask(BaseBattleTask):
                     self.log_info("第一次点到")
                     return True
 
-        if text := self.wait_click_ocr(['挑战'],True,box=self.box_of_screen(0.88,0.83,0.95,0.91)):
+        if self.config["Lock Team Enable"] and self.count == 2:
+            self.log_info("进入第二次战斗锁住阵容")
+            self.Lock_team((0.14, 0.82, 0.2, 0.9), lock=True)
+
+        if text := self.wait_click_ocr(match=re.compile("挑战"),box=self.box_of_screen(0.88,0.83,0.95,0.91)):
                 print(text)
         if self.count == 1:
-            self.change_auto()
+            self.log_info("进入检测1")
+            if self.config["Lock Team Enable"]:
+                self.Change_team(self.group, self.team)
 
-        if self.wait_until(check, time_out=self.config["BattleTime"], raise_if_not_found=False):
+            self.log_info("检测是否为自动")
+            self.change_auto()
+        if self.GreenNum != 0:
+            if self.wait_ocr(
+                    match=re.compile('自动'),
+                    box=self.box_of_screen(0.02, 0.88, 0.08, 0.96),
+                    time_out=8
+            ):
+                self.sleep(0.1)
+                x, y = self.green[self.GreenNum]
+                self.click_relative(x, y, after_sleep=1)
+
+        if self.wait_until(check, time_out=self.BattleTime, raise_if_not_found=False):
             return True
 
         

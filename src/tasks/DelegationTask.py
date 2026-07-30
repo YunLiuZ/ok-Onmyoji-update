@@ -13,28 +13,29 @@ class DelegationTask(BaseOmjTask):
         "Miyoshino": "接|送弥助",
         "Strange Trace": "奇怪的|痕迹",
         "Miyoshino Painting": "弥助的|画",
-        "以鱼为礼":"以鱼|为礼"
+        "Fish":"以鱼|为礼"
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = "日常-式神委派"
         self.default_config.update({
-            "Bird Feather": True,
-            "Find Earring": True,
-            "Cat Boss": True,
-            "Miyoshino": True,
-            "Strange Trace": True,
-            "Miyoshino Painting": True,
-            "以鱼为礼":True ,
+            "Bird Feather": False,
+            "Find Earring": False,
+            "Cat Boss": False,
+            "Miyoshino": False,
+            "Strange Trace": False,
+            "Miyoshino Painting": False,
+            "Fish":False ,
         })
         self.config_description.update({
-            "Bird Feather": "bird_feather_help",
-            "Find Earring": "find_earring_help",
-            "Cat Boss": "Cat Boss_help",
-            "Miyoshino": "Miyoshino_help",
-            "Miyoshino Painting": "Miyoshino Painting_help",
-            "Strange Trace": "Strange Trace_help",
+            "Bird Feather": "50体力->20片大蛇的逆鳞",
+            "Find Earring": "300体力->金币28万",
+            "Cat Boss": "300体力->四星白蛋",
+            "Miyoshino": "100体力->三星结界卡",
+            "Miyoshino Painting": "300体力->六星变异卡",
+            "Strange Trace": "100体力->金币九万八",
+            "Fish":"四星结界卡" ,
         })
 
     def run(self):
@@ -48,7 +49,9 @@ class DelegationTask(BaseOmjTask):
         if not self.Delegation_selet():
             self.log_warning("Delegation_selet 失败")
             return False
-        if not self.Back_Home():
+        if self.wait_click_feature('Home_Button', box=self.B('Home_Button'), time_out=3,threshold=0.8):
+            self.log_info('点击 Home_Button')
+        if not self.in_home_and_back():
             self.log_warning("Back_Home 失败")
             return False
         return True
@@ -79,6 +82,7 @@ class DelegationTask(BaseOmjTask):
         """根据用户配置，在委派列表中识别并点击已启用的委派任务。"""
         self.log_info('进入委派任务')
         self._swipe(0.85, 0.80, 0.85, 0.30, 0.5)
+        self.sleep(1)
 
         # 收集已启用任务的翻译名
         enabled = [(k, t) for k, t in self.DELEGATION_MAP.items() if self.config.get(k, False)]
@@ -101,27 +105,36 @@ class DelegationTask(BaseOmjTask):
                 self.log_info(f'找不到委派任务: {translation}')
             else:
                 self.info_set("委派", f"已点击 {translation}")
-                if self.wait_ocr("召回", box=self.box_of_screen(0.73, 0.35, 0.93, 0.53),
-                                 threshold=0.8, time_out=6, raise_if_not_found=False):
+                if self.wait_ocr(match=re.compile("召回"), box=self.box_of_screen(0.73, 0.35, 0.93, 0.53),
+                                 threshold=0.8, time_out=3, raise_if_not_found=False):
                     self.log_info('找到还未完成的任务')
-                    if not (text := self.ocr_and_click(['跳过'], 2,
-                                                        box=self.box_of_screen(0.72, 0.54, 0.85, 0.69))):
-                        self.log_info('找不到跳过')
-                        continue
-                else:
+                    if self.wait_click_ocr(match=re.compile("返回"),
+                                        time_out=3,
+                                        box=self.box_of_screen(0.73, 0.35, 0.93, 0.7)):
+                        self.log_info("返回")
+                    else:
+                        self.click_relative(0.78,0.62)
+                elif self.wait_click_ocr(match=re.compile("跳过"),
+                                        time_out=3,
+                                        box=self.box_of_screen(0.5, 0.7, 0.61, 0.79)):
                     self.Delegation()
                     self._swipe(0.85, 0.80, 0.85, 0.30, 0.5)
+                elif self.Delegation():
+                        self.log_info("没有跳过")
+                else:
+                    return False
         return True
 
     def Finish_delegation(self):
+        if self.wait_ocr(match=re.compile("式神|委派"),
+                         box=self.box_of_screen(0, 0, 0.17, 0.1), time_out=6):
+            self.log_info("回到式神委派页面")
         self.log_info('检查是否有已完成的委派')
-        self.sleep(1)
-        self.log_info('进入委派任务')
         self._swipe(0.85, 0.80, 0.85, 0.30, 0.5)
+        self.sleep(1)
         while (self.ocr(match=re.compile("完成"),
                                         box=self.B("Delegation"))):
             self.sleep(0.5)
-            print()
             self.click_relative(0.93, 0.27)
             # self.click_relative(0.89, 0.44, after_sleep=1) ？？？
             self.wait_until(condition=lambda: self.ocr_and_click(['完成'], 1, time_out=0.5,
@@ -137,27 +150,21 @@ class DelegationTask(BaseOmjTask):
         return True
 
     def Delegation(self):
-
-        if not (text := self.ocr_and_click(['跳过'], 2,
-                                            box=self.box_of_screen(0.49, 0.69, 0.59, 0.79))):
-            print(text)
-            self.log_info('找不到跳过')
-        if not (text := self.ocr_and_click(['委派','式神'], 2,
-                                            box=self.box_of_screen(0.73, 0.35, 0.93, 0.53))):
-            print(text)
-            self.log_info('找不到式神委派')
-        if not (text := self.ocr_and_click(['一键','选择'], 2,
-                                        box=self.box_of_screen(0.85, 0.59, 0.98, 0.88))):
-            print(text)
-            self.log_info('找不到一键')
-        if text := self.ocr_and_click(['出发'], 2,
-                                        box=self.box_of_screen(0.85, 0.59, 0.98, 0.88)):
-            print(text)
-            self.log_info('找到出发')
-            if text := self.wait_ocr(['式神','委派'],
+        if not self.wait_click_ocr(match=re.compile("委派|式神"),
+                               time_out=3,
+                               box=self.box_of_screen(0.73, 0.35, 0.93, 0.53),):
+            self.log_warning('找不到式神委派')
+        if not self.wait_click_ocr(match=re.compile("一键|选择"),
+                               time_out=3,
+                               box=self.box_of_screen(0.85, 0.59, 0.98, 0.88),):
+            self.log_warning('找不到一键')
+        if self.wait_click_ocr(match=re.compile("出发"),
+                               time_out=3,
+                               box=self.box_of_screen(0.85, 0.59, 0.98, 0.88),):
+            self.log_warning('找到出发')
+            if self.wait_ocr(match=re.compile("式神|委派"),
                                     box=self.box_of_screen(0, 0, 0.17, 0.1), time_out=6):
+                self.log_info("回到式神委派页面")
                 return True
         else:
             return False
-
-

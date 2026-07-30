@@ -468,6 +468,10 @@
             <source>Click an option to add it.</source>
             <translation>추가할 옵션을 클릭하세요.</translation>
         </message>
+        <message>
+            <source>Search options...</source>
+            <translation>옵션 검색...</translation>
+        </message>
     </context>
     <context>
         <name>ModifyListItem</name>
@@ -1354,7 +1358,7 @@
             <translation>베타 버전</translation>
         </message>
         <message>
-            <source>Kill Launcher after Start</source>
+            <source>Kill Launcher After Start</source>
             <translation>시작 후 런처 종료</translation>
         </message>
         <message>
