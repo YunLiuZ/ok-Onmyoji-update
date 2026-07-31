@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.0.2"
+version = "v1.0.3"
 #不需要修改version, Github Action打包会自动修改
 
 
@@ -112,7 +112,12 @@ config = {
     },
     'links': { # 关于里显示的链接, 可选
             'default': {
-                'github': 'https://github.com/YunLiuZ/ok-Onmyoji',
+                'github': 'https://github.com/ok-oldking/ok-py',
+                'discord': 'https://discord.gg/vVyCatEBgA',
+                'share': 'Download from https://github.com/ok-oldking/ok-py',
+                'qq_group':'https://qm.qq.com/q/3Gq4VLvQe',
+                'qq_channel': 'https://pd.qq.com/s/djmm6l44y',
+                'faq': 'https://github.com/ok-oldking/ok-py'
             }
         },
     'screenshots_folder': "screenshots", #截图存放目录, 每次重新启动会清空目录
