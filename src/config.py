@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.0.6"
+version = "v1.0.7"
 #不需要修改version, Github Action打包会自动修改
 
 
@@ -72,7 +72,7 @@ config = {
     'use_gui': True, # 目前只支持True
     'config_folder': f'configs{_instance_suffix}',  # 多开时自动使用子目录（如 configs/instance_2）
     'global_configs': [key_config_option, character_config],
-    'screenshot_processor': make_bottom_right_black, # 在截图的时候对frame进行修改, 可选
+    # 'screenshot_processor': make_bottom_right_black, # 在截图的时候对frame进行修改, 可选
     'gui_icon': 'icons/icon.png', #窗口图标, 最好不需要修改文件名
     'wait_until_before_delay': 0,
     'wait_until_check_delay': 0,
@@ -98,7 +98,7 @@ config = {
         # optional, if set, will start the pacakge and ensure installed
         'packages': ['com.netease.onmyoji.wyzymnqsd_cps']
     },
-    'start_timeout': 120,  # default 60
+    'start_timeout': 60,  # default 60
     'window_size': { #ok-script窗口大小
         'width': 1200,
         'height': 800,
@@ -146,6 +146,9 @@ config = {
         ["src.tasks.ExplorationTask", "ExplorationTask"],
         ["src.tasks.AwakeTask", "AwakeTask"],
         ["src.tasks.GameEventsBattleTask", "GameEventsBattleTask"],
+        # ── 周常 ──
+        ["src.tasks.SecretTask", "SecretTask"],
+
 
         # ── 其他 ──
         ["src.tasks.RestartGameTask", "RestartGameTask"],
