@@ -152,12 +152,13 @@ class BaseBattleTask(BaseOmjTask):
 
 
 
-    def _invite_tabs(self, base_tabs=None):
+    def _invite_tabs(self, base_tabs=None, first=None):
         """返回按优先搜索重排后的标签页列表。"""
         if base_tabs is None:
             base_tabs = ["最近", "好友", "跨区", "寮友"]
         tabs = list(base_tabs)
-        first = self.config.get("FindMode", tabs[0])
+        if first is None:
+            first = tabs[0]
         if first in tabs:
             tabs.remove(first)
             tabs.insert(0, first)
@@ -258,11 +259,11 @@ class BaseBattleTask(BaseOmjTask):
 
         def check():
             nonlocal result
-            if self.wait_click_feature('Battle_Success', threshold=0.7,
+            if self.wait_click_feature('Battle_Success', threshold=0.9,
                                                box=self.B('success_box'),
                                                 raise_if_not_found=False, time_out=1,
                                                   after_sleep=0.5):
-                if res1 := self.find_one('Battle_Success', threshold=0.7,
+                if res1 := self.find_one('Battle_Success', threshold=0.9,
                                                           box=self.B('success_box')):
                     self.click(res1)
                     self.sleep(0.5)
@@ -314,11 +315,11 @@ class BaseBattleTask(BaseOmjTask):
                 else:
                     self.log_info("第一次点到")
                     return True
-            if res := self.find_one('Battle_Failure', threshold=0.7,
+            if res := self.find_one('Battle_Failure', threshold=0.9,
                                         box=self.B('Battle_Failure')):
                 self.click(res)
                 self.sleep(0.5)
-                if res1 := self.find_one('Battle_Failure', threshold=0.7,
+                if res1 := self.find_one('Battle_Failure', threshold=0.9,
                                         box=self.B('Battle_Failure')):
                     self.click(res1)
                     self.log_info("第一次没点到")
