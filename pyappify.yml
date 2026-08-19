@@ -1,5 +1,6 @@
 name: "ok-Onmyoji"
 uac: true
+icon: "icons/icon.png"
 profiles:
   - name: "China"
     git_url: "https://gitee.com/yunliu123/ok-onmyoji.git"
