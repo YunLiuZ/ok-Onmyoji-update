@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.1.10"
+version = "v1.2.1"
 #不需要修改version, Github Action打包会自动修改
 
 
@@ -141,6 +141,8 @@ config = {
         ["src.tasks.GoldYoukaiTask", "GoldYoukaiTask"],
         ["src.tasks.ExperienceYoukaiTask", "ExperienceYoukaiTask"],
         ["src.tasks.DemonEncounter", "DemonEncounter"],
+        # ── 日常-寮内 ──
+        ["src.tasks.HuntTask", "HuntTask"],
 
         # ── 战斗 ──
         ["src.tasks.SoulZonesTask", "SoulZonesTask"],
