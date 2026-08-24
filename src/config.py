@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.2.3"
+version = "v1.2.4"
 #不需要修改version, Github Action打包会自动修改
 
 
@@ -134,6 +134,8 @@ config = {
         ["src.tasks.DelegationTask", "DelegationTask"],
         ["src.tasks.UtilizeTask", "UtilizeTask"],
         ["src.tasks.OrchidsTask", "OrchidsTask"],
+        ["src.tasks.WantedQuestsTask", "WantedQuestsTask"],
+
 
 
         # ── 日常-战斗 ──
