@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.2.4"
+version = "v1.2.5"
 #不需要修改version, Github Action打包会自动修改
 
 
@@ -77,7 +77,7 @@ config = {
     'gui_icon': 'icons/icon.png', #窗口图标, 最好不需要修改文件名
     'wait_until_before_delay': 0,
     'wait_until_check_delay': 0,
-    'wait_until_settle_time': 0, #调用 wait_until时候, 在第一次满足条件的时候, 会等待再次检测, 以避免某些滑动动画没到预定位置就在动画路径中被检测到
+    'wait_until_settle_time': 0.5, #调用 wait_until时候, 在第一次满足条件的时候, 会等待再次检测, 以避免某些滑动动画没到预定位置就在动画路径中被检测到
     'ocr': { #可选, 使用的OCR库
         'lib': 'onnxocr',
         'auto_simplify': True, #自动繁体转简体, 需要ppocrv5等可以识别繁体的库
@@ -97,7 +97,7 @@ config = {
     },
     'adb': {  # Windows游戏请填写此设置, mumu模拟器使用原生截图和input,速度极快. 其他模拟器和真机使用adb,截图速度较慢
         # optional, if set, will start the pacakge and ensure installed
-        'packages': ['com.netease.onmyoji.wyzymnqsd_cps']
+        'packages': ['com.netease.onmyoji', 'com.netease.onmyoji.wyzymnqsd_cps']
     },
     'start_timeout': 60,  # default 60
     'window_size': { #ok-script窗口大小
