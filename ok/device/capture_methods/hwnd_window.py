@@ -6,13 +6,14 @@ import win32con
 import win32gui
 import win32process
 
-from ok.gui.Communicate import communicate
-from ok.gui.util.Alert import alert_info
+from ok.core.events import communicate
+from ok.core.notifications import alert_info
 from ok.util.GlobalConfig import basic_options
 from ok.util.logger import Logger
 from ok.util.window import show_title_bar, get_window_bounds, resize_window, is_foreground_window, find_hwnd
 
 from ok.device.capture_methods.base import BaseWindowsCaptureMethod
+from ok.device.capture_methods.bitblt_utils import get_crop_point
 
 logger = Logger.get_logger(__name__)
 
@@ -34,6 +35,8 @@ class HwndWindow:
         self.player_id = player_id
         self.window_width = 0
         self.window_height = 0
+        self.client_width = 0
+        self.client_height = 0
         self.x = 0
         self.y = 0
         self.width = 0
@@ -65,7 +68,7 @@ class HwndWindow:
         self.global_config = global_config
         self.mute_option.validator = self.validate_mute_config
         self.update_window(title, exe_name, frame_width, frame_height, player_id, hwnd_class, top_hwnd_class)
-        self.thread = threading.Thread(target=self.update_window_size, name="update_window_size")
+        self.thread = threading.Thread(target=self.update_window_size, name="update_window_size", daemon=True)
         self.thread.start()
 
     def validate_mute_config(self, key, value):
@@ -79,7 +82,13 @@ class HwndWindow:
         return True, None
 
     def stop(self):
-        self.stop_event.set()
+        try:
+            self.stop_event.set()
+            window_thread = getattr(self, 'thread', None)
+            if window_thread is not None and window_thread is not threading.current_thread():
+                window_thread.join(timeout=1)
+        except Exception as error:
+            logger.error(f'hwnd window close failed: {error}')
 
     def _front_hwnd_candidates(self):
         return list(dict.fromkeys(hwnd for hwnd in (self.top_hwnd, self.hwnd) if hwnd))
@@ -180,15 +189,28 @@ class HwndWindow:
         self.do_update_window_size()
 
     def update_window_size(self):
-        while not self.app_exit_event.is_set() and not self.stop_event.is_set():
-            self.do_update_window_size()
-            time.sleep(0.2)
-        if self.hwnd and self.mute_option.get('Mute Game while in Background'):
-            logger.info(f'exit reset mute state to 0')
-            set_mute_state(self.hwnd, 0)
+        try:
+            while not self.app_exit_event.is_set() and not self.stop_event.is_set():
+                self.do_update_window_size()
+                time.sleep(0.2)
+            if self.hwnd and self.mute_option.get('Mute Game while in Background'):
+                logger.info(f'exit reset mute state to 0')
+                set_mute_state(self.hwnd, 0)
+        except Exception as error:
+            logger.error(f'update_window_size exception: {error}')
 
     def get_abs_cords(self, x, y):
         return self.x + x, self.y + y
+
+    def get_capture_origin(self):
+        """Return the screen origin of the cropped game content."""
+        if self.real_x_offset != 0 or self.real_y_offset != 0:
+            offset_x = self.real_x_offset
+            offset_y = self.real_y_offset
+        else:
+            offset_x, offset_y = get_crop_point(
+                self.client_width, self.client_height, self.width, self.height)
+        return self.x + offset_x, self.y + offset_y
 
     def get_top_window_cords(self, x, y):
         return x - self.top_offset_x, y - self.top_offset_y
@@ -201,6 +223,8 @@ class HwndWindow:
             self.top_hwnd,
             self.width,
             self.height,
+            self.client_width,
+            self.client_height,
             self.real_x_offset,
             self.real_y_offset,
             self.real_width,
@@ -216,7 +240,10 @@ class HwndWindow:
         try:
             changed = False
             exists = False
-            visible, x, y, window_width, window_height, width, height, scaling = self.visible, self.x, self.y, self.window_width, self.window_height, self.width, self.height, self.scaling
+            visible, x, y = self.visible, self.x, self.y
+            window_width, window_height = self.window_width, self.window_height
+            client_width, client_height = self.client_width, self.client_height
+            width, height, scaling = self.width, self.height, self.scaling
             name, find_hwnd_res, exe_full_path, real_x_offset, real_y_offset, real_width, real_height, hwnds = find_hwnd(
                 self.title,
                 self.exe_names or self.device_manager.config.get('selected_exe'),
@@ -256,6 +283,7 @@ class HwndWindow:
                     visible = self.is_foreground()
                     x, y, window_width, window_height, width, height, scaling = get_window_bounds(
                         self.hwnd)
+                    client_width, client_height = width, height
                     if self.frame_aspect_ratio != 0 and height != 0:
                         window_ratio = width / height
                         if window_ratio < self.frame_aspect_ratio:
@@ -268,7 +296,7 @@ class HwndWindow:
                             logger.error(f'og.executor.pause pos_invalid: {x, y, width, height}')
                             communicate.notification.emit('Paused because game window is minimized or out of screen!',
                                                           None,
-                                                          True, True, "start", None)
+                                                          True, True, "start", None, None)
                     if pos_valid != self.pos_valid:
                         self.pos_valid = pos_valid
                 else:
@@ -277,7 +305,7 @@ class HwndWindow:
                         alert_info('Auto exit because game exited', True)
                         communicate.quit.emit()
                     else:
-                        communicate.notification.emit('Game Exited', None, True, True, None, None)
+                        communicate.notification.emit('Game Exited', None, True, True, None, None, None)
                     self.hwnd = 0
                     visible = False
                 if visible != self.visible:
@@ -291,9 +319,13 @@ class HwndWindow:
                     self.last_mute_check = time.time()
 
                 if (window_width != self.window_width or window_height != self.window_height or
+                    client_width != self.client_width or client_height != self.client_height or
                     x != self.x or y != self.y or width != self.width or height != self.height or scaling != self.scaling) and (
                         (x >= -1 and y >= -1) or self.visible):
-                    self.x, self.y, self.window_width, self.window_height, self.width, self.height, self.scaling = x, y, window_width, window_height, width, height, scaling
+                    self.x, self.y = x, y
+                    self.window_width, self.window_height = window_width, window_height
+                    self.client_width, self.client_height = client_width, client_height
+                    self.width, self.height, self.scaling = width, height, scaling
                     changed = True
                 if self.exists != exists:
                     self.exists = exists
@@ -309,7 +341,8 @@ class HwndWindow:
                         communicate.adb_devices.emit(True)
                     logger.info(
                         f"do_update_window_size changed,visible:{self.visible},exists:{self.exists} x:{self.x} y:{self.y} window:{self.width}x{self.height} self.window:{self.window_width}x{self.window_height} real:{self.real_width}x{self.real_height}")
-                    communicate.window.emit(self.visible, self.x + self.real_x_offset, self.y + self.real_y_offset,
+                    capture_x, capture_y = self.get_capture_origin()
+                    communicate.window.emit(self.visible, capture_x, capture_y,
                                             self.window_width, self.window_height,
                                             self.width,
                                             self.height, self.scaling)

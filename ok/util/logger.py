@@ -14,6 +14,9 @@ from ok.util.file import ensure_dir_for_file, get_relative_path
 _ok_log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(threadName)s %(message)s')
 _ok_logger = logging.getLogger("ok")
 _OK_STDOUT_HANDLER = "_ok_stdout_handler"
+_file_listener = None
+_file_handler = None
+_queue_handler = None
 
 
 def _ensure_default_console_logger():
@@ -105,11 +108,13 @@ class SafeFileHandler(TimedRotatingFileHandler):
         return default_name
 
     def emit(self, record):
+        # QueueListener can still deliver records while logging is shutting down.
+        # A closed handler cannot write them, and reporting that expected state via
+        # handleError() produces a traceback for every queued record.
+        if self.stream is None or self.stream.closed:
+            return
         try:
-            if self.stream and not self.stream.closed:
-                super().emit(record)
-            else:
-                raise ValueError("I/O operation on closed file.")
+            super().emit(record)
         except Exception:
             self.handleError(record)
 
@@ -144,7 +149,7 @@ class SafeFileHandler(TimedRotatingFileHandler):
 class CommunicateHandler(logging.Handler):
     def __init__(self):
         super().__init__()
-        from ok.gui.Communicate import communicate
+        from ok.core.events import communicate
         self.communicate = communicate
 
     def emit(self, record):
@@ -153,6 +158,21 @@ class CommunicateHandler(logging.Handler):
 
 
 def config_logger(config=None, name='ok-script'):
+    global _file_listener, _file_handler, _queue_handler
+
+    # Stop new records entering the old queue before draining and closing its
+    # listener. Other application threads may continue logging during this call.
+    if _queue_handler is not None:
+        _ok_logger.removeHandler(_queue_handler)
+        _queue_handler.close()
+        _queue_handler = None
+    if _file_listener is not None:
+        _file_listener.stop()
+        _file_listener = None
+    if _file_handler is not None:
+        _file_handler.close()
+        _file_handler = None
+
     parser = argparse.ArgumentParser(description='Process some parameters.')
     parser.add_argument('--parent_pid', type=int, help='Parent process ID', default=0)
     args, _ = parser.parse_known_args()
@@ -199,16 +219,17 @@ def config_logger(config=None, name='ok-script'):
     log_queue = queue.Queue()
     queue_handler = QueueHandler(log_queue)
     _ok_logger.addHandler(queue_handler)
+    _queue_handler = queue_handler
 
-    file_handler = SafeFileHandler(logger_file, when="midnight", interval=1,
-                                   backupCount=7, encoding='utf-8')
-    file_handler.setFormatter(_ok_log_formatter)
-    file_handler.setLevel(logging.DEBUG)
+    _file_handler = SafeFileHandler(logger_file, when="midnight", interval=1,
+                                    backupCount=7, encoding='utf-8')
+    _file_handler.setFormatter(_ok_log_formatter)
+    _file_handler.setLevel(logging.DEBUG)
 
     os.makedirs("logs", exist_ok=True)
 
-    listener = QueueListener(log_queue, file_handler)
-    listener.start()
+    _file_listener = QueueListener(log_queue, _file_handler)
+    _file_listener.start()
 
 
 def _should_skip_file_logging(config):
