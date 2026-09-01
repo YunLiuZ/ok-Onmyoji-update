@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.2.7"
+version = "v1.2.8"
 #不需要修改version, Github Action打包会自动修改
 
 
@@ -154,6 +154,7 @@ config = {
 
         # ── 周常 ──
         ["src.tasks.SecretTask", "SecretTask"],
+        ["src.tasks.DuelTask", "DuelTask"],
 
         # ── 活动 ──
         ["src.tasks.GameEventsBattleTask", "GameEventsBattleTask"],
