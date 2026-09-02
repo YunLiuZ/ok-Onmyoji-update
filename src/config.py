@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.2.8"
+version = "v1.2.9"
 #不需要修改version, Github Action打包会自动修改
 
 
@@ -97,7 +97,7 @@ config = {
     },
     'adb': {  # Windows游戏请填写此设置, mumu模拟器使用原生截图和input,速度极快. 其他模拟器和真机使用adb,截图速度较慢
         # optional, if set, will start the pacakge and ensure installed
-        'packages': ['com.netease.onmyoji', 'com.netease.onmyoji.wyzymnqsd_cps']
+        'packages': ['com.netease.onmyoji.wyzymnqsd_cps','com.netease.onmyoji',]
     },
     'start_timeout': 60,  # default 60
     'window_size': { #ok-script窗口大小
