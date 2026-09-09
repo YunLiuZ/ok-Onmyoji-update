@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.3.1"
+version = "v1.3.2"
 #不需要修改version, Github Action打包会自动修改
 
 
