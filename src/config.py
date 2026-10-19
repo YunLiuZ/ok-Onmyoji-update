@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from ok import ConfigOption
 
-version = "v1.3.5"
+version = "v1.3.6"
 #不需要修改version, Github Action打包会自动修改
 
 
@@ -143,7 +143,9 @@ config = {
         ["src.tasks.RealmRaidTask", "RealmRaidTask"],
         ["src.tasks.GoldYoukaiTask", "GoldYoukaiTask"],
         ["src.tasks.ExperienceYoukaiTask", "ExperienceYoukaiTask"],
+
         ["src.tasks.DemonEncounter", "DemonEncounter"],
+
         # ── 日常-寮内 ──
         ["src.tasks.HuntTask", "HuntTask"],
 
@@ -151,6 +153,7 @@ config = {
         ["src.tasks.SoulZonesTask", "SoulZonesTask"],
         ["src.tasks.ExplorationTask", "ExplorationTask"],
         ["src.tasks.AwakeTask", "AwakeTask"],
+        ["src.tasks.GoryouRealmTask", "GoryouRealmTask"],
 
         # ── 周常 ──
         ["src.tasks.SecretTask", "SecretTask"],
