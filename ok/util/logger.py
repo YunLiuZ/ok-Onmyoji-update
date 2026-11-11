@@ -49,6 +49,9 @@ class Logger:
         stack_trace_str = self.exception_to_str(exception)
         self.logger.error(f"{self.name}:{message} {stack_trace_str}")
 
+    def exception(self, message, *args, **kwargs):
+        self.logger.exception(f"{self.name}:{message}", *args, **kwargs)
+
     def critical(self, message):
         self.logger.critical(f"{self.name}:{message}")
 
@@ -75,6 +78,21 @@ class Logger:
             except Exception as e:
                 stack_trace_str = f"Error formatting exception: {str(e)}"
         return stack_trace_str
+
+
+class _PrefixAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        return f"{self.extra['name']}:{msg}", kwargs
+
+
+def get_std_logger(name: str) -> logging.LoggerAdapter:
+    """Return a standard-library logger writing to ok's handlers.
+
+    Unlike :class:`Logger`, it accepts printf-style arguments
+    (``log.info("%s", value)``), which third-party libraries such as pyappify use.
+    """
+    _ensure_default_console_logger()
+    return _PrefixAdapter(_ok_logger, {'name': name.split('.')[-1]})
 
 
 def _log_exception_handler(exc_type, exc_value, exc_traceback):
